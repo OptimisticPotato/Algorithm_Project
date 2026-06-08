@@ -9,7 +9,7 @@ def calculate_greedy_tsp(holes):
     2. 모든 홀을 탐욕적으로 방문
     3. 다시 (0,0)으로 복귀
     """
-    start_time = time.time()
+    start_time = time.perf_counter()
     start_point = (0.0, 0.0)
     unvisited = list(holes)  # 아직 방문하지 않은 홀들의 목록
     current_pos = start_point
@@ -39,8 +39,11 @@ def calculate_greedy_tsp(holes):
     return_dist = math.sqrt((current_pos[0] - start_point[0])**2 + (current_pos[1] - start_point[1])**2)
     total_distance += return_dist
     path.append(start_point)
-    end_time = time.time()
-    
+    end_time = time.perf_counter()
+
+    # start_time *= 1e3  # s 단위로 변환
+    # end_time *= 1e3    # s 단위로 변환
+
     print("-" * 50)
     print(f"[Greedy] 총 이동 거리: {total_distance:.2f} mm")
     print_time(start_time, end_time)

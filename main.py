@@ -6,7 +6,7 @@ from proposed import optimize_drilling_path
 
 import time
 
-N = 100            # 생성할 홀의 개수
+N = 300           # 생성할 홀의 개수
 x_max = 100.0      # 가로 크기
 y_max = 100.0      # 세로 크기
 r_hole = 2.0      # 홀 반지름
@@ -39,7 +39,8 @@ if __name__ == "__main__":
     greedy_path, greedy_distance = calculate_greedy_tsp(hole_positions)
 
     # 2-Opt
-    initial_path = [(0.0, 0.0)] + hole_positions + [(0.0, 0.0)]
+    # initial_path = [(0.0, 0.0)] + hole_positions + [(0.0, 0.0)]
+    initial_path = greedy_path  # Greedy 결과를 초기 경로로 사용
     two_opt_path, two_opt_distance, iteration_count = run_2opt_heuristic(initial_path)
 
     # Held-Karp
@@ -52,10 +53,10 @@ if __name__ == "__main__":
     proposed_path, proposed_distance = optimize_drilling_path(hole_positions)
     
     
-    visualize_four_paths(
-    hole_positions=hole_positions,
-    greedy_path=greedy_path,
-    two_opt_path=two_opt_path,
-    held_karp_path=held_karp_path, # 만약 N이 너무 커서 안 돌렸다면 [] 를 넣으시면 됩니다.
-    proposed_path=proposed_path
-    )
+    # visualize_four_paths(
+    # hole_positions=hole_positions,
+    # greedy_path=greedy_path,
+    # two_opt_path=two_opt_path,
+    # held_karp_path=held_karp_path, # 만약 N이 너무 커서 안 돌렸다면 [] 를 넣으시면 됩니다.
+    # proposed_path=proposed_path
+    # )

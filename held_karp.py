@@ -1,91 +1,54 @@
-import math
-import itertools
-import time
-from utilities import *
+from Utilities import get_cost
 
-def calculate_distance_matrix(nodes):
-    """모든 점들 간의 유클리드 거리를 사전 계산하여 2차원 배열로 반환합니다."""
-    n = len(nodes)
-    dist_matrix = [[0.0] * n for _ in range(n)]
-    for i in range(n):
-        for j in range(n):
-            if i != j:
-                dist_matrix[i][j] = math.sqrt((nodes[i][0] - nodes[j][0])**2 + (nodes[i][1] - nodes[j][1])**2)
-    return dist_matrix
-
-def run_held_karp(hole_positions):
+def held_karp(holes):
+    """
+    Held-Karp 동적 계획법 (Optimal Baseline).
+    비용 행렬(Cost Matrix)에 이미 공구 교체 페널티가 포함되어 있으므로,
+    DP 상태 공간을 탐색하며 공구 유지와 동선 단축 간의 최적 트레이드오프를 찾아냅니다.
+    """
+    n = len(holes)
+    # 거리 대신 '비용(Cost)' 행렬을 미리 계산하여 상태 의존적 성질을 반영
+    cost_matrix = [[get_cost(holes[i], holes[j]) for j in range(n)] for i in range(n)]
     
-    # 0번 인덱스에 공구의 출발점(0.0, 0.0) 추가
-    nodes = [(0.0, 0.0)] + hole_positions
-    n = len(nodes)
-    
-    start_time = time.time()
-    
-    # 거리 행렬 사전 계산
-    dist = calculate_distance_matrix(nodes)
-    
-    # Memoization 테이블 초기화
+    # memo: (방문한 노드 비트마스크, 마지막 방문 노드) -> 최소 비용
     memo = {}
+
+    def solve(mask, last):
+        # 모든 노드를 방문한 경우 (시작점 0번 노드로 귀환하는 비용 반환)
+        if mask == (1 << n) - 1:
+            return cost_matrix[last][0]
+
+        if (mask, last) in memo:
+            return memo[(mask, last)]
+
+        min_cost = float('inf')
+        for i in range(n):
+            # i번 노드를 아직 방문하지 않은 경우
+            if not (mask & (1 << i)):
+                new_cost = cost_matrix[last][i] + solve(mask | (1 << i), i)
+                min_cost = min(min_cost, new_cost)
+
+        memo[(mask, last)] = min_cost
+        return min_cost
+
+    # 최적 경로 역추적 로직
+    optimal_cost = solve(1, 0)
     
-    # [Base Case] 원점(0)에서 출발해 각 홀(i)을 처음 방문하는 비용
-    for i in range(1, n):
-        initial_mask = 1 | (1 << i) 
-        memo[(initial_mask, i)] = (dist[0][i], 0)
-        
-    # [DP Step] 방문할 노드 개수를 늘려가며 탐색
-    for r in range(2, n):
-        for subset in itertools.combinations(range(1, n), r):
-            bits = 1 
-            for bit in subset:
-                bits |= (1 << bit)
-            
-            for next_node in subset:
-                prev_mask = bits & ~(1 << next_node)
-                
-                min_cost = float('inf')
-                min_prev_node = -1
-                
-                for prev_node in subset:
-                    if prev_node == next_node:
-                        continue
-                        
-                    cost = memo[(prev_mask, prev_node)][0] + dist[prev_node][next_node]
-                    if cost < min_cost:
-                        min_cost = cost
-                        min_prev_node = prev_node
-                        
-                memo[(bits, next_node)] = (min_cost, min_prev_node)
-                
-    # [Final Step] 원점으로 돌아오는 최소 비용 계산
-    all_visited_mask = (1 << n) - 1
-    min_total_cost = float('inf')
-    last_node_before_return = -1
+    mask = 1
+    last = 0
+    path = [0]
     
-    for i in range(1, n):
-        cost = memo[(all_visited_mask, i)][0] + dist[i][0]
-        if cost < min_total_cost:
-            min_total_cost = cost
-            last_node_before_return = i
-            
-    # [경로 역추적]
-    path = []
-    curr_mask = all_visited_mask
-    curr_node = last_node_before_return
-    
-    while curr_node != 0:
-        path.append(curr_node)
-        next_node = memo[(curr_mask, curr_node)][1]
-        curr_mask &= ~(1 << curr_node)
-        curr_node = next_node
-        
-    path.append(0)
-    path.reverse()
-    path.append(0)
-    
-    end_time = time.time()
-    
-    print("-" * 50)
-    print(f"[Held-Karp] 총 이동 거리: {min_total_cost:.2f} mm")
-    print_time(start_time, end_time)
-    
-    return path, min_total_cost
+    while mask != (1 << n) - 1:
+        next_node = -1
+        best_val = float('inf')
+        for i in range(n):
+            if not (mask & (1 << i)):
+                val = cost_matrix[last][i] + solve(mask | (1 << i), i)
+                if val < best_val:
+                    best_val = val
+                    next_node = i
+        path.append(next_node)
+        mask |= (1 << next_node)
+        last = next_node
+
+    return path, optimal_cost

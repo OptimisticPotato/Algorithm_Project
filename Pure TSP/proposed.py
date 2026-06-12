@@ -6,7 +6,7 @@ import time
 from utilities import *
 
 # =====================================================================
-# 1. 공통 유틸리티 함수
+# 1. 공통 유틸리티 함수 및 부동소수점 오차 방어선
 # =====================================================================
 def calc_dist(p1, p2):
     return math.sqrt((p1[0] - p2[0])**2 + (p1[1] - p2[1])**2)
@@ -15,8 +15,19 @@ def calc_path_distance(path):
     if len(path) < 2: return 0.0
     return sum(calc_dist(path[i], path[i + 1]) for i in range(len(path) - 1))
 
+def find_node_index(node, nodes_list):
+    """
+    부동소수점 미세 오차로 인해 .index()가 점을 찾지 못하고 
+    ValueError를 뿜는 현상을 완벽하게 차단하는 안전장치 함수입니다.
+    """
+    if node is None: return -1
+    for idx, n in enumerate(nodes_list):
+        if math.isclose(node[0], n[0], abs_tol=1e-9) and math.isclose(node[1], n[1], abs_tol=1e-9):
+            return idx
+    return -1
+
 # =====================================================================
-# 2. [Base Solver] 원점 복귀를 인지하는 만능 Held-Karp DP
+# 2. [Base Solver] 만능 Held-Karp DP (ValueError 방어 적용)
 # =====================================================================
 def solve_base_dp(nodes, start_node=None, end_node=None, depot=None):
     n = len(nodes)
@@ -27,8 +38,12 @@ def solve_base_dp(nodes, start_node=None, end_node=None, depot=None):
 
     dist = [[calc_dist(nodes[i], nodes[j]) for j in range(n)] for i in range(n)]
     
-    start_idx = nodes.index(start_node) if start_node else None
-    end_idx = nodes.index(end_node) if end_node else None
+    # 안전한 인덱스 추출법으로 전환 (ValueError 원천 차단)
+    start_idx = find_node_index(start_node, nodes)
+    if start_idx == -1: start_idx = None
+    
+    end_idx = find_node_index(end_node, nodes)
+    if end_idx == -1: end_idx = None
     
     memo = {}
     
@@ -98,7 +113,7 @@ def solve_base_dp(nodes, start_node=None, end_node=None, depot=None):
     return path, min_total_cost
 
 # =====================================================================
-# 3. [Phase 1: Tree Builder] 일단 클러스터링을 최하위까지 완전히 진행
+# 3. [Phase 1: Tree Builder] 완전 분할 선행 진행
 # =====================================================================
 class ClusterTree:
     def __init__(self, nodes, max_M=15):
@@ -108,7 +123,6 @@ class ClusterTree:
         self.centroid = (sum(p[0] for p in nodes)/self.n, sum(p[1] for p in nodes)/self.n) if self.n > 0 else (0,0)
         self.children = []
         
-        # 최하위(max_M 이하)가 될 때까지 무조건 재귀적으로 트리를 먼저 쪼갭니다.
         if not self.is_leaf and self.n > 0:
             K = min(max_M, self.n)
             kmeans = KMeans(n_clusters=K, n_init=10, random_state=42).fit(nodes)
@@ -128,8 +142,7 @@ def min_distance_pair(nodes_A, nodes_B):
     for u in nodes_A:
         for v in nodes_B:
             d = calc_dist(u, v)
-            if d < min_dist:
-                min_dist = d
+            if d < min_dist: min_dist = d
     return min_dist
 
 def select_portal_candidates(cluster_nodes, other_nodes, k):
@@ -216,7 +229,6 @@ def solve_cluster_order(dist_matrix, start_idx=None, end_idx=None, depot_dists=N
 # 5. [Phase 2: Tree Solver] 계층적 포탈 생성 및 최하위 DP 병합
 # =====================================================================
 def solve_tree_hierarchy(tree_node, start_node=None, end_node=None, max_M=15, portal_k=3, depot=None):
-    # [3-2. 최하위 군집 내부 경로 생성]
     if tree_node.is_leaf:
         path, _ = solve_base_dp(tree_node.nodes, start_node=start_node, end_node=end_node, depot=depot)
         return path
@@ -224,13 +236,25 @@ def solve_tree_hierarchy(tree_node, start_node=None, end_node=None, max_M=15, po
     K = len(tree_node.children)
     centroids = [c.centroid for c in tree_node.children]
 
-    start_c_idx, end_c_idx = None, None
+    # [핵심 수정 블록 1] 진짜 주인을 추적하기 위한 독립 백업 변수 설정
+    actual_start_c_idx = None
     if start_node:
-        dists = [calc_dist(start_node, c) for c in centroids]
-        start_c_idx = dists.index(min(dists))
+        for idx, child in enumerate(tree_node.children):
+            if find_node_index(start_node, child.nodes) != -1:
+                actual_start_c_idx = idx
+                break
+
+    actual_end_c_idx = None
     if end_node:
-        dists = [calc_dist(end_node, c) for c in centroids]
-        end_c_idx = dists.index(min(dists))
+        for idx, child in enumerate(tree_node.children):
+            if find_node_index(end_node, child.nodes) != -1:
+                actual_end_c_idx = idx
+                break
+
+    start_c_idx = actual_start_c_idx
+    end_c_idx = actual_end_c_idx
+
+    # 두 포탈이 한 군집에 갇혔을 때 모순 해결 제약 완화
     if start_c_idx is not None and end_c_idx is not None and start_c_idx == end_c_idx and K > 1:
         end_c_idx = None
 
@@ -247,43 +271,58 @@ def solve_tree_hierarchy(tree_node, start_node=None, end_node=None, max_M=15, po
     ordered_c_indices = solve_cluster_order(dist_matrix, start_idx=start_c_idx, end_idx=end_c_idx, depot_dists=depot_dists)
     if not ordered_c_indices: return []
 
-    # [3-1. 하위 군집 간의 포탈 후보 생성 (portal_k 개수만큼!)]
     entry_candidates, exit_candidates = {}, {}
     for i, c_idx in enumerate(ordered_c_indices):
         current_nodes = tree_node.children[c_idx].nodes
         
-        if i == 0:
-            if start_node: entry_list = [start_node]
-            elif depot: entry_list = select_portal_candidates(current_nodes, [depot], portal_k)
-            else: entry_list = list(current_nodes)
+        # [핵심 수정 블록 2] 무조건 처음/마지막 군집에 할당하지 않고, 진짜 소속 관계를 따져 포탈 배달
+        # 진입 노드 처리
+        if start_node and c_idx == actual_start_c_idx:
+            if i == 0:
+                entry_list = [start_node]
+            else:
+                prev_nodes = tree_node.children[ordered_c_indices[i - 1]].nodes
+                entry_list = select_portal_candidates(current_nodes, prev_nodes, portal_k)
+                if find_node_index(start_node, entry_list) == -1:
+                    entry_list.append(start_node)
         else:
-            prev_nodes = tree_node.children[ordered_c_indices[i - 1]].nodes
-            entry_list = select_portal_candidates(current_nodes, prev_nodes, portal_k)
+            if i == 0:
+                if depot: entry_list = select_portal_candidates(current_nodes, [depot], portal_k)
+                else: entry_list = list(current_nodes)
+            else:
+                prev_nodes = tree_node.children[ordered_c_indices[i - 1]].nodes
+                entry_list = select_portal_candidates(current_nodes, prev_nodes, portal_k)
 
-        if i == len(ordered_c_indices) - 1:
-            if end_node: exit_list = [end_node]
-            elif depot: exit_list = select_portal_candidates(current_nodes, [depot], portal_k)
-            else: exit_list = list(current_nodes)
+        # 진출 노드 처리
+        if end_node and c_idx == actual_end_c_idx:
+            if i == len(ordered_c_indices) - 1:
+                exit_list = [end_node]
+            else:
+                next_nodes = tree_node.children[ordered_c_indices[i + 1]].nodes
+                exit_list = select_portal_candidates(current_nodes, next_nodes, portal_k)
+                if find_node_index(end_node, exit_list) == -1:
+                    exit_list.append(end_node)
         else:
-            next_nodes = tree_node.children[ordered_c_indices[i + 1]].nodes
-            exit_list = select_portal_candidates(current_nodes, next_nodes, portal_k)
+            if i == len(ordered_c_indices) - 1:
+                if depot: exit_list = select_portal_candidates(current_nodes, [depot], portal_k)
+                else: exit_list = list(current_nodes)
+            else:
+                next_nodes = tree_node.children[ordered_c_indices[i + 1]].nodes
+                exit_list = select_portal_candidates(current_nodes, next_nodes, portal_k)
 
         entry_candidates[c_idx] = list(dict.fromkeys(entry_list))
         exit_candidates[c_idx] = list(dict.fromkeys(exit_list))
 
-    # [4. 최하위 경로 확정 및 선택지 생성 (하위 트리 재귀 해결)]
     cluster_costs = {}
     for c_idx in ordered_c_indices:
         child_tree = tree_node.children[c_idx]
         for entry in entry_candidates[c_idx]:
             for exit in exit_candidates[c_idx]:
                 if entry == exit and len(child_tree.nodes) > 1: continue
-                # 포탈 후보 조합(최대 9개)마다 하위 경로 탐색
                 path = solve_tree_hierarchy(child_tree, start_node=entry, end_node=exit, max_M=max_M, portal_k=portal_k)
                 if path:
                     cluster_costs[(c_idx, entry, exit)] = (path, calc_path_distance(path))
 
-    # [5. 최상위까지 올라오며 궤적 조립 (Stitching DP)]
     first_idx = ordered_c_indices[0]
     dp, prev_map, first_prev = {}, [], {}
 
@@ -354,12 +393,11 @@ def solve_tree_hierarchy(tree_node, start_node=None, end_node=None, max_M=15, po
 # =====================================================================
 def optimize_drilling_path(hole_positions, max_M=15, portal_k=3):
     depot = (0.0, 0.0)
-    start_time = time.time()    
     
-    # 1. 일단 트리 형태로 완벽하게 클러스터링을 최하위까지 진행합니다.
+    start_time = time.perf_counter()
+
     full_tree = ClusterTree(hole_positions, max_M=max_M)
     
-    # 2. 구축된 트리를 기반으로 최하위부터 조립하며 경로를 구합니다.
     pure_optimal_path = solve_tree_hierarchy(
         full_tree,
         start_node=None,
@@ -369,11 +407,10 @@ def optimize_drilling_path(hole_positions, max_M=15, portal_k=3):
         depot=depot
     )
     
-    # 3. 원점 시작, 복귀를 지키며 최종 경로를 완성합니다.
     full_path = [depot] + pure_optimal_path + [depot]
     total_dist = sum(calc_dist(full_path[i], full_path[i+1]) for i in range(len(full_path)-1))
-    
-    end_time = time.time()
+    end_time = time.perf_counter()
+
     print("-" * 50)
     print(f"[Proposed] 최적화 완료! 총 이동 거리: {total_dist:.2f} mm")
     print_time(start_time, end_time)

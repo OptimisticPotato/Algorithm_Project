@@ -1,0 +1,2 @@
+N,greedy_distance,two_opt_distance,held_karp_distance,proposed_distance,greedy_time_s,two_opt_time_s,held_karp_time_s,proposed_time_s,greedy_mem_kb,two_opt_mem_kb,held_karp_mem_kb,proposed_mem_kb,hole_gen_time_s,hole_gen_mem_kb,2opt_iterations
+100,2112.840083817711,1709.068716464465,,1704.4652615378548,0.002774900000076741,6.175005000000965,,3.521140100001503,2.201171875,6.291015625,,44026.7177734375,0.0023120999976526946,10.7265625,46

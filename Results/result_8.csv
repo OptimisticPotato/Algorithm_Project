@@ -1,0 +1,7 @@
+﻿NUM_HOLES,WIDTH,HEIGHT,TOOL_TYPES,TOOL_COUNTS,Algorithm,Cost,Time(s),Peak Memory(KB)
+500,500,500,"['M4', 'M8']","{'M4': 251, 'M8': 249}",Greedy Algorithm,732.5137968054933,0.10011559999838937,43.00390625
+500,500,500,"['M4', 'M8']","{'M4': 251, 'M8': 249}",Tool-Bundled 2-Opt,nan,nan,nan
+500,500,500,"['M4', 'M8']","{'M4': 251, 'M8': 249}",State-Aware 2-Opt,nan,nan,nan
+500,500,500,"['M4', 'M8']","{'M4': 251, 'M8': 249}",Held-Karp (Optimal),nan,nan,nan
+500,500,500,"['M4', 'M8']","{'M4': 251, 'M8': 249}",Proposed Method,658.898742914958,25.607893499996862,521.8642578125
+500,500,500,"['M4', 'M8']","{'M4': 251, 'M8': 249}",1-Tree Lower Bound,597.3225831920734,87.38507730000129,4956.25

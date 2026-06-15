@@ -140,7 +140,7 @@ def main_function():
     # 5. Proposed method
     start_t = time.perf_counter()
     tracemalloc.start()
-    proposed_path = proposed_h_dp(holes,num_portals=10)
+    proposed_path = proposed_h_dp(holes,num_portals=3)
     proposed_cost = calculate_path_cost(proposed_path, holes)
     proposed_time = time.perf_counter() - start_t
     mem_current, mem_peak = tracemalloc.get_traced_memory()
@@ -168,18 +168,18 @@ def main_function():
     # ==========================================
     # 플롯 그리기
     # ==========================================
-    # fig, axes = plt.subplots(2, 2, figsize=(10, 8), constrained_layout=True)
-    # fig.suptitle("TCP-TSP Algorithm Benchmark Paths", fontsize=16, fontweight='bold')
+    fig, axes = plt.subplots(2, 2, figsize=(10, 8), constrained_layout=True)
+    fig.suptitle("TCP-TSP Algorithm Benchmark Paths", fontsize=16, fontweight='bold')
 
-    # # 각 알고리즘별 서브플롯 그리기
-    # plot_path(axes[0, 0], holes, greedy_path, "1. Greedy Algorithm", greedy_cost, greedy_time)
-    # plot_path(axes[0, 1], holes, tb_path,     "2. Tool-Bundled 2-Opt", tb_cost, tb_time)
-    # plot_path(axes[1, 0], holes, sa_path,     "3. State-Aware 2-Opt", sa_cost, sa_time)
-    # # Held-karp는 NUM_HOLES가 커서 작동 안 할 경우 오류가 날 수 있으므로 Proposed로 대체
-    # plot_path(axes[1, 1], holes, proposed_path, "5. Proposed Method", proposed_cost, proposed_time)
+    # 각 알고리즘별 서브플롯 그리기
+    plot_path(axes[0, 0], holes, greedy_path, "1. Greedy Algorithm", greedy_cost, greedy_time)
+    plot_path(axes[0, 1], holes, tb_path,     "2. Tool-Bundled 2-Opt", tb_cost, tb_time)
+    plot_path(axes[1, 0], holes, sa_path,     "3. State-Aware 2-Opt", sa_cost, sa_time)
+    # Held-karp는 NUM_HOLES가 커서 작동 안 할 경우 오류가 날 수 있으므로 Proposed로 대체
+    plot_path(axes[1, 1], holes, proposed_path, "5. Proposed Method", proposed_cost, proposed_time)
 
-    # # 화면에 출력
-    # plt.show()
+    # 화면에 출력
+    plt.show()
     
     
 if __name__ == "__main__":

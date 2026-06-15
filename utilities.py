@@ -72,7 +72,7 @@ def generate_random_holes(num_holes, width, height, tool_types):
     start_tool = tool_types[0]
     holes.append(Hole(id=0, x=0.0, y=0.0, tool=start_tool))
 
-    padding = 1.0 # 홀과 홀 사이의 최소 안전 여유 공간 (mm)
+    padding = 10.0 # 홀과 홀 사이의 최소 안전 여유 공간 (mm)
 
     # 2. 나머지 홀 생성 (ID 중복을 피하기 위해 1부터 시작)
     for i in range(1, num_holes):

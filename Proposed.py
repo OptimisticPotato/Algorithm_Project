@@ -8,14 +8,14 @@ from Utilities import get_distance, get_cost, Hole
 # 1. 공통 유틸리티 함수 및 Hole 객체 호환
 # =====================================================================
 def calc_path_cost(path):
-    """경로의 전체 비용(거리 + ATC 페널티)을 계산합니다."""
+    """경로의 전체 비용(거리 + ATC 페널티)을 계산."""
     if len(path) < 2: return 0.0
     return sum(get_cost(path[i], path[i + 1]) for i in range(len(path) - 1))
 
 def find_node_index(node, nodes_list):
     """
     부동소수점 미세 오차로 인해 .index()가 점을 찾지 못하는 현상 방지.
-    Hole 객체의 고유 id를 비교하여 완벽하게 안전한 인덱스를 반환합니다.
+    Hole 객체의 고유 id를 비교하여 완벽하게 안전한 인덱스를 반환.
     """
     if node is None: return -1
     for idx, n in enumerate(nodes_list):
@@ -270,7 +270,7 @@ def solve_tree_hierarchy(tree_node, start_node=None, end_node=None, max_M=15, po
         end_c_idx = None
 
     depot_dists = None
-    if depot and not start_node and not end_node:
+    if depot and not start_node and not end_node: # Depot이 존재하고, 시작/종료 노드가 명시되지 않은 경우에만 Depot 거리 계산
         depot_dists = [min(get_cost(depot, p) for p in child.nodes) for child in tree_node.children]
 
     dist_matrix = [[0.0] * K for _ in range(K)]
@@ -287,7 +287,7 @@ def solve_tree_hierarchy(tree_node, start_node=None, end_node=None, max_M=15, po
         current_nodes = tree_node.children[c_idx].nodes
         
         # 진입 노드 처리
-        if start_node and c_idx == actual_start_c_idx:
+        if start_node and c_idx == actual_start_c_idx: # 시작 노드가 명시되어 있고, 현재 클러스터가 실제 시작 노드를 포함하는 클러스터인 경우
             if i == 0:
                 entry_list = [start_node]
             else:
@@ -295,11 +295,11 @@ def solve_tree_hierarchy(tree_node, start_node=None, end_node=None, max_M=15, po
                 entry_list = select_portal_candidates(current_nodes, prev_nodes, portal_k)
                 if find_node_index(start_node, entry_list) == -1:
                     entry_list.append(start_node)
-        else:
-            if i == 0:
+        else: # 시작 노드가 명시되지 않았거나, 현재 클러스터가 실제 시작 노드를 포함하지 않는 경우
+            if i == 0: # 첫 번째 클러스터는 이전 클러스터가 없으므로 Depot과의 거리를 기준으로 포탈 후보 선정
                 if depot: entry_list = select_portal_candidates(current_nodes, [depot], portal_k)
                 else: entry_list = list(current_nodes)
-            else:
+            else: # 이전 클러스터의 노드를 기준으로 포탈 후보 선정
                 prev_nodes = tree_node.children[ordered_c_indices[i - 1]].nodes
                 entry_list = select_portal_candidates(current_nodes, prev_nodes, portal_k)
 
@@ -403,7 +403,7 @@ def solve_tree_hierarchy(tree_node, start_node=None, end_node=None, max_M=15, po
 # =====================================================================
 def proposed_h_dp(hole_positions, max_cluster_size=10, num_portals=3):
     """
-    메인 함수: TCP-TSP 구조에 맞춰 래퍼 함수 파라미터 이름을 통일시켰습니다.
+    메인 함수: TCP-TSP 구조에 맞춰 래퍼 함수 파라미터 이름을 통일
     """
     if len(hole_positions) <= 1:
         return [h.id for h in hole_positions]
